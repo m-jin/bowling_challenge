@@ -74,4 +74,13 @@
                  (rest n))))))
 
 
+(defn finish? [score_card]
+  (let [last_result   (strike-or-spare (:ball-score (last @score_card)))
+        frames_played (count @score_card)]
+    (if (or (= 11 frames_played)
+            (and (nil? last_result)
+               (= frames_played 10)))
+          (reduce + (map :frame-score @score_card))
+          false)))
+
 :end_bowling_core
