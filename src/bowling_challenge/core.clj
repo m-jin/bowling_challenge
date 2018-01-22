@@ -55,7 +55,9 @@
   (let [list_of_scores (->>  frames_needed
                              (map :ball-score)
                              (reduce concat))]
-    (if (= :spare (strike-or-spare (:ball-score (first frames_needed))))
+    (if (or (= :spare (strike-or-spare (:ball-score (first frames_needed))))
+            (and (= 9 (:frame (second frames_needed)))
+                 (= :strike (strike-or-spare (:ball-score (second frames_needed)))))) ;;NOT HAPPY WITH THIS!
       (->> list_of_scores
            drop-last
            (reduce +))
@@ -74,20 +76,26 @@
 
 (defn traverse-board [score_card]
   (loop [n @score_card]
-    (if (empty? (first n))
+    (if (empty? (:ball-score (second n)))
       score_card
-      (recur (do (println "frame needed " (no-of-frames-needed (first n)))
-                 (add-frame-score! score_card (:frame (first n)))
+      (recur (do (add-frame-score! score_card (:frame (first n)))
                  (rest n))))))
+
+(defn total [score_card]
+  (reduce + (map :frame-score @score_card)))
 
 
 (defn finish? [score_card]
-  (let [last_result   (strike-or-spare (:ball-score (last @score_card)))
-        frames_played (count @score_card)]
-    (if (or (= 11 frames_played)
-            (and (nil? last_result)
-               (= frames_played 10)))
-          (reduce + (map :frame-score @score_card))
-          false)))
+  (let [bonus_bowls   (count (:ball-score (last @score_card)))
+        final_frame_status (strike-or-spare (:ball-score(nth @score_card 9)))]
+    (if (or (= :open final_frame_status)
+            (and (or (= :spare final_frame_status)
+                     (= :strike final_frame_status))
+                 (= 2 bonus_bowls)))
+      (total score_card)
+      false)))
+
+
 
 :end_bowling_core
+0
