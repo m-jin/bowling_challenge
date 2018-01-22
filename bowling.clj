@@ -7,7 +7,12 @@
     (if (= n 11)
       acc
       (recur (inc n)
-             (conj acc [0 0])))))
+             (conj acc
+                   (let [rand1 (rand-int 11)
+                         rand2 (rand-int (- 11 rand1))]
+                     {:frame      n
+                      :ball-score [10 0]
+                      :frame-score 0}))))))
 
 
 (defn strike-or-spare [pins_down]
@@ -19,27 +24,54 @@
         :open))
 
 
-(defn score-frame
-  ([frame_1]
-   (+ (first frame_1) (second frame_1)))
+(defn no-of-frames-needed [frame]
+  (let [current_frame_state (strike-or-spare (:ball-score frame))
+        frame-number (:frame frame)]
+    (cond (= current_frame_state :open)
+          1
+          (or (= current_frame_state :spare)
+              (= frame-number 9))
+          2
+          (= current_frame_state :strike)
+          3)))
 
-  ([frame_1 frame_2]
-   (let [frame_1_score  (reduce + frame_1)
-         frame_1_result (strike-or-spare frame_1)
 
-         frame_2_score (reduce + frame_2)]
+(defn pick-frames-to-use [frames_needed]
+  (if (= 3 (count frames_needed))
+    (if (not= :strike (strike-or-spare (:ball-score (second frames_needed))))
+      (take 2 frames_needed)
+      frames_needed)
+    frames_needed))
 
-     (cond (= frame_1_result :strike)
-           (+ frame_1_score frame_2_score)
-           (= frame_1_result :spare)
-           (+ frame_1_score (first frame_2))
-           :else
-           frame_1_score))))
 
-(defn traverse-score [score_card]
+(defn score-frame [frames_needed]
+  (let [list_of_scores (->>  frames_needed
+                             (map :ball-score)
+                             (reduce concat))]
+    (if (= :spare (strike-or-spare (:ball-score (first frames_needed))))
+      (->> list_of_scores
+           drop-last
+           (reduce +))
+      (reduce + list_of_scores))))
+
+
+(defn add-frame-score! [score_card frame_no]
+  (let [coll       (nthrest @score_card frame_no)
+        value      (-> (first coll)
+                       no-of-frames-needed
+                       (take coll)
+                       pick-frames-to-use
+                       score-frame)]
+    (swap! score_card update-in [frame_no] assoc :frame-score value)))
+
+
+(defn traverse-board [score_card]
   (loop [n @score_card]
-    (if (empty? n)
+    (if (empty? (first n))
       score_card
-      (recur (rest n)))))
+      (recur (do (println "frame needed " (no-of-frames-needed (first n)))
+                 (add-frame-score! score_card (:frame (first n)))
+                 (rest n))))))
+
 
 :end_bowling_core
